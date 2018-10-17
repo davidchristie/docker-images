@@ -1,0 +1,47 @@
+version: 2
+
+jobs:
+
+  puppeteer:
+    docker:
+    - image: circleci/node:9.11
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run:
+          name: Check for changes
+          command: |
+              if [ -z $(git diff --name-only HEAD~ images/puppeteer) ]
+              then
+                echo "No changes in the last commit"
+                circleci step halt
+              else
+                echo "Was changed in the last commit"
+              fi
+      - setup_remote_docker
+      - run:
+          name: Log in to docker
+          command: |
+              docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+      - run:
+          name: Set image name and version
+          command: |
+              echo 'IMAGE="$DOCKER_USERNAME/puppeteer"' >> $BASH_ENV
+              echo 'VERSION="$(git rev-parse --short HEAD)"' >> $BASH_ENV
+      - run:
+          name: Build image
+          command: |
+              docker build \
+                  --tag $IMAGE:latest \
+                  --tag $IMAGE:$VERSION \
+                  images/puppeteer
+      - run:
+          name: Push image
+          command: |
+              docker push $IMAGE
+
+workflows:
+  version: 2
+  check-deploy:
+    jobs:
+      - puppeteer
